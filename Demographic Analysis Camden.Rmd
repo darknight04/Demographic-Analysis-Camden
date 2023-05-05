@@ -1,0 +1,214 @@
+---
+title: "DA_Project"
+author: "Riya Aggarwal"
+date: "08/12/2022"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r}
+Ethnicity <-read.csv("/Users/riya/Desktop/KS201EW_oa11.csv")
+head(ethnicity)
+```
+```{r}
+Qualifications <-read.csv("/Users/riya/Desktop/KS501EW_oa11.csv")
+head(qualifications)
+```
+```{r}
+Employment <-read.csv("/Users/riya/Desktop/KS601EW_oa11.csv")
+head(employment)
+```
+```{r}
+# selecting specific columns only
+Ethnicity <- Ethnicity[, c(1, 21)]
+Employment <- Employment[, c(1, 20)]
+Qualifications <- Qualifications[, c(1, 20)]
+```
+
+```{r}
+names(Employment)[2] <- "Unemployed"
+```
+
+```{r}
+names(Ethnicity)<- c("OA", "White_British")
+names(Employment)<- c("OA", "Unemployed")
+names(Qualifications)<- c("OA", "Qualification")
+```
+
+#merging the dataset
+```{r}
+merged_data_1 <- merge(Ethnicity, Employment, by="OA")
+Census.Data <- merge(merged_data_1, Qualifications, by="OA")
+```
+
+```{r}
+write.csv(Census.Data, "practical_data.csv", row.names=F)
+```
+```{r}
+Census.Data <-read.csv("practical_data.csv")
+head(Census.Data)
+```
+
+# Statistical Analysis
+```{r}
+summary(Census.Data)
+```
+
+# Visualizing Data
+
+# Univariate Plots
+
+```{r}
+# Creates a histogram
+hist(Census.Data$Unemployed, breaks=20, col= "blue",
+main="% in full-time employment", xlab="Percentage")
+```
+
+```{r}
+# box and whisker plots
+boxplot(Census.Data[,2:4])
+```
+```{r}
+install.packages("vioplot")
+```
+
+```{r}
+# loads a package
+library(vioplot)
+```
+```{r}
+# creates a violin plot for 3 variables, uses 3 shades of blue
+vioplot(Census.Data$Unemployed, Census.Data$Qualification, Census.Data$White_British,
+ ylim=c(0,100),
+col = "dodgerblue", rectCol="dodgerblue3", colMed="dodgerblue4",
+names=c("Unemployed", "Qualifications", "White British"))
+```
+```{r}
+# a bubble plot with a dotted regression line
+symbols(Census.Data$Unemployed, Census.Data$Qualification,
+circles = Census.Data$White_British,
+fg="white", bg ="purple", inches = 0.2, xlab="% in full time employmented",
+ylab="% With a Qualification") +
+abline(lm(Census.Data$Qualification~ Census.Data$Unemployed), col="red", lwd=2, lty=2)
+```
+
+```{r}
+p <- ggplot(Census.Data, aes(Unemployed,Qualification))
+p + geom_point(aes(colour = White_British))
+```
+
+# Representing with Maps
+
+```{r}
+install.packages("rgdal")
+```
+```{r}
+install.packages("rgeos")
+```
+```{r}
+# Load packages
+library("rgdal")
+library("rgeos")
+```
+
+```{r}
+# Load the output area shapefiles
+Output.Areas<- readOGR(".", "Camden_oa11")
+```
+
+```{r}
+plot(Output.Areas)
+```
+
+```{r}
+OA.Census <- merge(Output.Areas, Census.Data, by.x="OA11CD", by.y="OA")
+```
+
+```{r}
+# sets the coordinate system to the British National Grid
+proj4string(OA.Census) <- CRS("+init=EPSG:27700")
+```
+
+```{r}
+install.packages("tmap")
+install.packages("leaflet")
+```
+```{r}
+# loads packages
+library(tmap)
+library(leaflet)
+```
+```{r}
+# this will produce a quick map of our qualification variable
+qtm(OA.Census, fill = "Qualification")
+```
+
+```{r}
+# Creates a simple choropleth map of our qualification variable
+tm_shape(OA.Census) + tm_fill("Qualification")
+```
+```{r}
+# runs map function, remember we need to include all 3 arguments of the function
+# map function with 3 arguments
+map <- function(x,y,z){
+tm_shape(x) + tm_fill(y, palette = z, style = "quantile") + tm_borders(alpha=.4) +
+tm_compass(size = 1.8, fontsize = 0.5) +
+tm_layout(title = "Camden", legend.title.size = 1.1, frame = FALSE)
+}
+map(OA.Census, "Unemployed", "Blues")
+```
+
+# Correlations
+
+
+```{r}
+# Runs a Pearson's correlation
+cor.test(Census.Data$Unemployed, Census.Data$Qualification)
+```
+
+```{r}
+# creates a data1 object which does not include the 1st column from the original data
+data1 <- Census.Data[,2:4]
+cor(data1)
+round(cor(data1),2)
+```
+
+```{r}
+#Correlation heatmap
+qplot(x=Var1, y=Var2, data=melt(cor(data1, use="p")), fill=value, geom="tile") +
+scale_fill_gradient2(limits=c(-1, 1))
+```
+
+#Regression Analysis
+
+```{r}
+model_1 <- lm(Census.Data$Unemployed~ Census.Data$Qualification)
+```
+
+```{r}
+plot(Census.Data$Unemployed, Census.Data$Qualification, xlab="% Unemployed",
+ylab="% With a Qualification") + abline (model_1)
+```
+```{r}
+summary(model_1)
+```
+
+```{r}
+predict(model_1, data.frame(Qualification = c(15)))
+```
+
+```{r}
+confint(model_1, level= 0.95)
+```
+
+# Multiple regression
+
+```{r}
+model_2 <- lm(Census.Data$Qualification~ Census.Data$Unemployed +
+Census.Data$White_British)
+# view the model summary
+summary(model_2)
+
+```
